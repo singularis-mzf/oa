@@ -1,0 +1,27 @@
+#!/bin/bash
+date=$(date +%F)
+c="$date"
+for filepath in ../"in"/*
+do
+	file="$(basename -- "$filepath")"
+	if ! test -f "../in/$file"
+	then
+		printf 'CHYBA: soubor %s neexistuje!\n' "$file" >&2
+		exit 1
+	fi
+	if cut -c 67 sha256sums.txt | grep -Fxq -e "$file"
+	then
+		printf 'CHYBA: soubor %s je již evidován!\n' "$file" >&2
+		exit 1
+	fi
+	env -C "../in" sha256sum -b -- "$file" | tee -a sha256sums.txt
+	env -C "../in" sha512sum -b -- "$file" | tee -a sha512sums.txt
+	mv -fv "../in/$file" "../archive/$file"
+	printf '%s\n' "$date $file" | tee -a list.txt
+	c="$c $file"
+done
+set -ex
+git add sha256sums.txt sha512sums.txt list.txt
+git commit -m "$c" -S
+git push origin
+git push disroot
